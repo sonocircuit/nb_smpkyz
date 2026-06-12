@@ -20,12 +20,14 @@ NB_smpKey {
 				SynthDef(\smpKey_mono, {
 					arg outBus, sendABus, sendBBus, sBuf, nBuf,
 					vel = 1, amp = 1, pan = 0, spread = 0, drive = 0, noiseAmp = 0, sendA = 0, sendB = 0,
-					gate = 1, attack = 0.001, decay = 0.6, sustain = 0.2, release = 2,
+					gate = 1, atkA = 0.001, decA = 0.6, susA = 0.2, relA = 2, atkF = 0.001, decF = 0.6, susF = 0.2, relF = 2,
 					pitch = 0, tune = 0, rePitch = 0, startPos = 0, loopIn = 0.1, loopLen = 0.15, fadeRel = 0.6,
 					hpfHz = 20, lpfHz = 20000, hpfRz = 0, lpfRz = 0, lpfEnv = 0, hpfEnv = 0, bndAmt = 12, bndDepth = 0,
 					modDepth = 0, lpfMod = 0, hpfMod = 0, driveMod = 0, noiseMod = 0, sendAMod = 0, sendBMod = 0;
 
-					var env, rate, noz, snd, sndA, sndB, phaseA, phaseB, loopTrig, loopDur, loopInit, fadeTime, gain, attn, hpfRq, lpfRq;
+					var envA, envF, rate, noz, snd, sndA, sndB, phaseA, phaseB;
+					var loopTrig, loopDur, loopInit, fadeTime;
+					var gain, attn, hpfRq, lpfRq;
 
 					var aOrB = 0, xFade = 1, rateSlew = 0.4;
 					var numFrames = BufFrames.ir(sBuf);
@@ -66,7 +68,8 @@ NB_smpKey {
 					// synthesis ///////////////////////////////////////////////////////////////////////////////
 
 					// envelope
-					env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);
+					envA = EnvGen.kr(Env.adsr(atkA, decA, susA, relA), gate, doneAction: 2);
+					envF = EnvGen.kr(Env.adsr(atkF, decF, susF, relF), gate);
 
 					// trig timer and toggle for looping
 					loopTrig = TDuty.kr(Dseq([loopInit, Dseq([loopDur], inf)]), gapFirst:1) * gate;
@@ -82,20 +85,21 @@ NB_smpKey {
 					noz = PlayBuf.ar(1, nBuf, startPos: IRand(0, 6 * 48000), loop: 1);
 
 
-					// xfade/dynamics
+					// xfade
 					xFade = VarLag.ar(K2A.ar(aOrB) + Trig.kr(gate), fadeTime, warp: \sine) * 2 - 1; // Trig.kr(gate) used to init Varlag
 					snd = XFade2.ar(sndA, sndB, xFade);
-					noz = noz * Amplitude.kr(snd, 0.1, 0.5, noiseAmp * 2);
-					snd = (snd + noz) * vel * env;
+					noz = noz * Amplitude.kr(snd, 0.1, 0.6, noiseAmp);
+					snd = (snd + noz);
 
 					// filters
-					lpfHz = Lag.kr(lpfHz.explin(20, 20000, 0, 1) + (lpfEnv * env) + (lpfMod * modDepth)).linexp(0, 1, 20, 20000);
-					hpfHz = Lag.kr(hpfHz.explin(20, 20000, 0, 1) + (hpfEnv * env) + (hpfMod * modDepth)).linexp(0, 1, 20, 20000);
+					lpfHz = Lag.kr(lpfHz.explin(20, 20000, 0, 1) + (lpfEnv * envF) + (lpfMod * modDepth)).linexp(0, 1, 20, 20000);
+					hpfHz = Lag.kr(hpfHz.explin(20, 20000, 0, 1) + (hpfEnv * envF) + (hpfMod * modDepth)).linexp(0, 1, 20, 20000);
 					snd = RHPF.ar(snd, hpfHz, hpfRq);
 					snd = RLPF.ar(snd, lpfHz, lpfRq);
 
-					// drive
+					// drive/dynamics
 					snd = XFade2.ar(snd, (snd * gain).tanh * attn, drive * 2 - 1);
+					snd = snd * vel * envA;
 
 					// stereo image
 					snd = Pan2.ar(snd, pan, amp);
@@ -108,12 +112,14 @@ NB_smpKey {
 				SynthDef(\smpKey_stereo, {
 					arg outBus, sendABus, sendBBus, sBuf, nBuf,
 					vel = 1, amp = 1, pan = 0, spread = 0, drive = 0, noiseAmp = 0, sendA = 0, sendB = 0,
-					gate = 1, attack = 0.001, decay = 0.6, sustain = 0.2, release = 2,
+					gate = 1, atkA = 0.001, decA = 0.6, susA = 0.2, relA = 2, atkF = 0.001, decF = 0.6, susF = 0.2, relF = 2,
 					pitch = 0, tune = 0, rePitch = 0, startPos = 0, loopIn = 0.1, loopLen = 0.15, fadeRel = 0.6,
 					hpfHz = 20, lpfHz = 20000, hpfRz = 0, lpfRz = 0, lpfEnv = 0, hpfEnv = 0, bndAmt = 12, bndDepth = 0,
 					modDepth = 0, lpfMod = 0, hpfMod = 0, driveMod = 0, noiseMod = 0, sendAMod = 0, sendBMod = 0;
 
-					var env, rate, noz, snd, sndA, sndB, phaseA, phaseB, loopTrig, loopDur, loopInit, fadeTime, gain, attn, hpfRq, lpfRq;
+					var envA, envF, rate, noz, snd, sndA, sndB, phaseA, phaseB;
+					var loopTrig, loopDur, loopInit, fadeTime;
+					var gain, attn, hpfRq, lpfRq;
 
 					var aOrB = 0, xFade = 1, rateSlew = 0.4;
 					var numFrames = BufFrames.ir(sBuf);
@@ -154,7 +160,8 @@ NB_smpKey {
 					// synthesis ///////////////////////////////////////////////////////////////////////////////
 
 					// envelope
-					env = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);
+					envA = EnvGen.kr(Env.adsr(atkA, decA, susA, relA), gate, doneAction: 2);
+					envF = EnvGen.kr(Env.adsr(atkF, decF, susF, relF), gate);
 
 					// trig timer and toggle for looping
 					loopTrig = TDuty.kr(Dseq([loopInit, Dseq([loopDur], inf)]), gapFirst:1) * gate;
@@ -169,21 +176,21 @@ NB_smpKey {
 					sndB = BufRd.ar(2, sBuf, phaseB, 0, 4);
 					noz = PlayBuf.ar(1, nBuf, startPos: IRand(0, 6 * 48000), loop: 1);
 
-
-					// xfade/dynamics
+					// xfade
 					xFade = VarLag.ar(K2A.ar(aOrB) + Trig.kr(gate), fadeTime, warp: \sine) * 2 - 1; // Trig.kr(gate) used to init Varlag
 					snd = XFade2.ar(sndA, sndB, xFade);
-					noz = noz * Amplitude.kr(snd, 0.1, 0.5, noiseAmp * 2);
-					snd = (snd + noz) * vel * env;
+					noz = noz * Amplitude.kr(snd, 0.1, 0.6, noiseAmp);
+					snd = (snd + noz);
 
 					// filters
-					lpfHz = Lag.kr(lpfHz.explin(20, 20000, 0, 1) + (lpfEnv * env) + (lpfMod * modDepth)).linexp(0, 1, 20, 20000);
-					hpfHz = Lag.kr(hpfHz.explin(20, 20000, 0, 1) + (hpfEnv * env) + (hpfMod * modDepth)).linexp(0, 1, 20, 20000);
+					lpfHz = Lag.kr(lpfHz.explin(20, 20000, 0, 1) + (lpfEnv * envF) + (lpfMod * modDepth)).linexp(0, 1, 20, 20000);
+					hpfHz = Lag.kr(hpfHz.explin(20, 20000, 0, 1) + (hpfEnv * envF) + (hpfMod * modDepth)).linexp(0, 1, 20, 20000);
 					snd = RHPF.ar(snd, hpfHz, hpfRq);
 					snd = RLPF.ar(snd, lpfHz, lpfRq);
 
-					// drive
+					// drive/dynamics
 					snd = XFade2.ar(snd, (snd * gain).tanh * attn, drive * 2 - 1);
+					snd = snd * vel * envA;
 
 					// stereo image
 					snd = Splay.ar(snd, spread, amp, pan);
@@ -197,8 +204,8 @@ NB_smpKey {
 
 				SynthDef(\renderDustNoise, { |buf|
 					var sig = Mix.new([PinkNoise.ar(0.5), Dust.ar(5, 1)]);
-					sig = sig * LFNoise2.ar(440).range(0.3, 1);
-					sig = HPF.ar(sig, 2000);
+					sig = HPF.ar(sig, 1800);
+					sig = (sig * 36).tanh;
 					RecordBuf.ar(sig, buf, loop: 0, doneAction: 2);
 				}).play(args: [\buf, skNoz]);
 
@@ -248,30 +255,35 @@ NB_smpKey {
 				\pan, 0,
 				\spread, 0,
 				\drive, 0,
+				\noiseAmp, 0,
 				\sendA, 0,
 				\sendB, 0,
 				\pitch, 0,
 				\tune, 0,
-				\srtPos, 0,
+				\startPos, 0,
 				\loopIn, 0,
 				\loopLen, 1,
 				\fadeRel,
-				\attack, 0.01,
-				\decay, 0.01,
+				\atkA, 0.01,
+				\decA, 0.2,
+				\susA, 0.5,
+				\relA, 1.2,
+				\atkF, 0.01,
+				\decF, 0.2,
+				\susF, 0.5,
+				\relF, 1.2,
 				\lpfHz, 20000,
 				\lpfEnv, 0,
 				\lpfRz, 0,
 				\hpfHz, 20,
 				\hpfEnv, 0,
 				\hpfRz, 0,
-				\eqHz, 1200,
-				\eqRq, 1,
-				\eqAmp, 0,
 				\bndAmt, 1,
 				\bndDepth, 0,
 				\modDepth, 0,
 				\lpfMod, 0,
 				\hpfMod, 0,
+				\noiseMod, 0,
 				\driveMod, 0,
 				\sendAMod, 0,
 				\sendBMod, 0
