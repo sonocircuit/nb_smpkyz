@@ -1,1 +1,3 @@
-# nb_smpkey
+# smpKey
+
+a looping sample instrument.
