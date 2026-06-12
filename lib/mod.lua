@@ -20,7 +20,7 @@ local NOTE_MAX = 104
 local paramslist = {
   "sample_path", "amp", "pan", "spread", "drive", "noise", "send_a", "send_b",
   "pitchbend", "transpose", "tune", "start", "loop_start", "loop_length", "loop_fade",
-  "attack", "decay", "sustain", "release",
+  "a_attack", "a_decay", "a_sustain", "a_release", "f_attack", "f_decay", "f_sustain", "f_release",
   "lpf_hz", "lpf_env", "lpf_rz", "hpf_hz", "hpf_env", "hpf_rz",
   "drive_mod", "lpf_hz_mod", "hpf_hz_mod", "send_a_mod", "send_b_mod"
 }
@@ -250,7 +250,7 @@ end
 --------------------------- params ---------------------------
 
 local function add_smpkey_params()
-  params:add_group("nb_smpkey_group", "smpkey", 44)
+  params:add_group("nb_smpkey_group", "smpkey", 49)
   params:hide("nb_smpkey_group")
 
   params:add_separator("nb_smpkey_presets", "presets")
@@ -309,19 +309,33 @@ local function add_smpkey_params()
   params:add_control("nb_smpkey_loop_fade", "loop fade", controlspec.new(0.01, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 0.1, "%") end)
   params:set_action("nb_smpkey_loop_fade", function(val) set_param('fadeRel', val) end)
 
-  params:add_separator("nb_smpkey_envelope", "envelope")
+  params:add_separator("nb_smpkey_envelope", "amp envelope")
 
-  params:add_control("nb_smpkey_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_attack", function(val) set_param('attack', val) end)
+  params:add_control("nb_smpkey_a_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkey_a_attack", function(val) set_param('atkA', val) end)
 
-  params:add_control("nb_smpkey_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_decay", function(val) set_param('decay', val) end)
+  params:add_control("nb_smpkey_a_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkey_a_decay", function(val) set_param('decA', val) end)
 
-  params:add_control("nb_smpkey_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_sustain", function(val) set_param('sustain', val) end)
+  params:add_control("nb_smpkey_a_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkey_a_sustain", function(val) set_param('susA', val) end)
 
-  params:add_control("nb_smpkey_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
-  params:set_action("nb_smpkey_release", function(val) set_param('release', val) end)
+  params:add_control("nb_smpkey_a_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
+  params:set_action("nb_smpkey_a_release", function(val) set_param('relA', val) end)
+
+  params:add_separator("nb_smpkey_envelope", "filter envelope")
+
+  params:add_control("nb_smpkey_f_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkey_f_attack", function(val) set_param('atkF', val) end)
+
+  params:add_control("nb_smpkey_f_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkey_f_decay", function(val) set_param('decF', val) end)
+
+  params:add_control("nb_smpkey_f_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkey_f_sustain", function(val) set_param('susF', val) end)
+
+  params:add_control("nb_smpkey_f_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
+  params:set_action("nb_smpkey_f_release", function(val) set_param('relF', val) end)
 
   params:add_separator("nb_smpkey_filters", "filters")
 
