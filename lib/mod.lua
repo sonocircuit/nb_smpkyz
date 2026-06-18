@@ -373,9 +373,9 @@ local function add_smpkyz_params()
 
   params:add_separator("nb_smpkyz_modmods", "modulation")
 
-  params:add_control("nb_smpkyz_mod_amt", "mod amt [map me]", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkyz_mod_amt", function(val) set_param('modDepth', val) end)
-  params:set_save("nb_smpkyz_mod_amt", false)
+  params:add_control("nb_smpkyz_morph_amt", "morph amt [map me]", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_morph_amt", function(val) set_param('modDepth', val) end)
+  params:set_save("nb_smpkyz_morph_amt", false)
 
   params:add_control("nb_smpkyz_drive_mod", "drive", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
   params:set_action("nb_smpkyz_drive_mod", function(val) set_param('driveMod', val) end)
@@ -467,7 +467,7 @@ function add_smpkyz_player()
   end
 
   function player:modulate(val)
-    params:set("nb_smpkyz_mod_amt", val)
+    params:set("nb_smpkyz_morph_amt", val)
   end
 
   function player:note_on(note, vel)
