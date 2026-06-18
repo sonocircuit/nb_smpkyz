@@ -1,3 +1,3 @@
-# smpKey
+# smpKyz
 
 a looping sample instrument.
