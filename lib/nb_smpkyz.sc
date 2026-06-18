@@ -1,6 +1,6 @@
-// smpKey v1.0 - nb player 4 sample instruments - @sonoCircuit
+// smpKyz v1.0 - nb player 4 sample instruments - @sonoCircuit
 
-NB_smpKey {
+NB_smpKyz {
 
 	classvar <skGroup, <skVoices, <skBuffers, <skNoz;
 	classvar <loadQueue, <loadingSamples = false;
@@ -17,7 +17,7 @@ NB_smpKey {
 				skNoz = Buffer.alloc(s, s.sampleRate * 6);
 				s.sync;
 
-				SynthDef(\smpKey_mono, {
+				SynthDef(\smpKyz_mono, {
 					arg outBus, sendABus, sendBBus, sBuf, nBuf,
 					vel = 1, amp = 1, pan = 0, spread = 0, drive = 0, noiseAmp = 0, sendA = 0, sendB = 0,
 					gate = 1, atkA = 0.001, decA = 0.6, susA = 0.2, relA = 2, atkF = 0.001, decF = 0.6, susF = 0.2, relF = 2,
@@ -109,7 +109,7 @@ NB_smpKey {
 					Out.ar(sendBBus, snd * sendB);
 				}).add;
 
-				SynthDef(\smpKey_stereo, {
+				SynthDef(\smpKyz_stereo, {
 					arg outBus, sendABus, sendBBus, sBuf, nBuf,
 					vel = 1, amp = 1, pan = 0, spread = 0, drive = 0, noiseAmp = 0, sendA = 0, sendB = 0,
 					gate = 1, atkA = 0.001, decA = 0.6, susA = 0.2, relA = 2, atkF = 0.001, decF = 0.6, susF = 0.2, relF = 2,
@@ -218,7 +218,7 @@ NB_smpKey {
 	*queueLoadSample { arg vox, path;
 		var t = (vox: vox, path: path);
 		loadQueue = loadQueue.addFirst(t);
-		if (loadingSamples.not) { NB_smpKey.loadSample() };
+		if (loadingSamples.not) { NB_smpKyz.loadSample() };
 	}
 
 	*clearSample { arg vox;
@@ -237,8 +237,8 @@ NB_smpKey {
 			t = loadQueue.pop;
 			loadingSamples = true;
 			("loading..." + t.vox + t.path).postln;
-			NB_smpKey.clearSample(t.vox);
-			skBuffers[t.vox] = Buffer.read(Server.default, t.path, action: { NB_smpKey.loadSample() });
+			NB_smpKyz.clearSample(t.vox);
+			skBuffers[t.vox] = Buffer.read(Server.default, t.path, action: { NB_smpKyz.loadSample() });
 		}{
 			loadingSamples = false;
 		};
@@ -296,10 +296,10 @@ NB_smpKey {
 			// osc functions
 			OSCFunc.new({ |msg|
 				if (skGroup.isNil) {
-					NB_smpKey.addPlayer();
-					"smpKey initialzed".postln;
+					NB_smpKyz.addPlayer();
+					"smpKyz initialzed".postln;
 				};
-			}, "/nb_smpkey/init");
+			}, "/nb_smpkyz/init");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
@@ -308,7 +308,7 @@ NB_smpKey {
 				var vel = msg[4].asFloat;
 				var syn;
 				if (skBuffers[buf].notNil) {
-					var def = if (skBuffers[buf].numChannels > 1) {\smpKey_stereo} {\smpKey_mono};
+					var def = if (skBuffers[buf].numChannels > 1) {\smpKyz_stereo} {\smpKyz_mono};
 					if (skVoices[vox].notNil) { skVoices[vox].set(\gate, -1.05) };
 					syn = Synth.new(def,
 						[
@@ -324,16 +324,16 @@ NB_smpKey {
 					skVoices[vox] = syn;
 					syn.onFree({ if (skVoices[vox] === syn) {skVoices[vox] = nil} });
 				};
-			}, "/nb_smpkey/play");
+			}, "/nb_smpkyz/play");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
 				if (skVoices[vox].notNil) { skVoices[vox].set(\gate, 0) }
-			}, "/nb_smpkey/stop");
+			}, "/nb_smpkyz/stop");
 
 			OSCFunc.new({ |msg|
 				if (skGroup.notNil) { skGroup.set(\gate, -1.05) }
-			}, "/nb_smpkey/panic");
+			}, "/nb_smpkyz/panic");
 
 			OSCFunc.new({ |msg|
 				var key = msg[1].asSymbol;
@@ -342,33 +342,33 @@ NB_smpKey {
 					skGroup.set(key, val);
 				};
 				voiceParams[key] = val;
-			}, "/nb_smpkey/set_param");
+			}, "/nb_smpkyz/set_param");
 
 			OSCFunc.new({ |msg|
 				loadQueue = Array.new(numVoices);
 				loadingSamples = false;
-			}, "/nb_smpkey/reset_loadqueue");
+			}, "/nb_smpkyz/reset_loadqueue");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
 				var path = msg[2].asString;
-				NB_smpKey.queueLoadSample(vox, path)
-			}, "/nb_smpkey/load_sample");
+				NB_smpKyz.queueLoadSample(vox, path)
+			}, "/nb_smpkyz/load_sample");
 
 			OSCFunc.new({ |msg|
 				numVoices.do({ |vox|
-					NB_smpKey.clearSample(vox)
+					NB_smpKyz.clearSample(vox)
 				});
-				"smpkey buffers freed".postln;
-			}, "/nb_smpkey/clear_buffer");
+				"smpkyz buffers freed".postln;
+			}, "/nb_smpkyz/clear_buffer");
 
 			OSCFunc.new({ |msg|
 				numVoices.do({ |vox|
-					NB_smpKey.clearSample(vox)
+					NB_smpKyz.clearSample(vox)
 				});
 				skGroup.free;
-				"smpkey removed".postln;
-			}, "/nb_smpkey/free_all");
+				"smpkyz removed".postln;
+			}, "/nb_smpkyz/free_all");
 
 		}
 	}
