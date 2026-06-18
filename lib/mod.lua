@@ -1,4 +1,4 @@
--- smpKey v1.0 - nb player 4 sample instruments - @sonoCircuit
+-- smpKyz v1.0 - nb player 4 sample instruments - @sonoCircuit
 
 local fs = require 'fileselect'
 local tx = require 'textentry'
@@ -6,7 +6,7 @@ local mu = require 'musicutil'
 local md = require 'core/mods'
 local vx = require 'voice'
 
-local preset_path = "/home/we/dust/data/nb_smpkey/smpkey_presets"
+local preset_path = "/home/we/dust/data/nb_smpkyz/smpkyz_presets"
 local audio_path = "/home/we/dust/audio/"
 local current_preset = ""
 local is_active = false
@@ -40,20 +40,20 @@ end
 
 --------------------------- osc msgs ---------------------------
 
-local function init_smpkey()
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/init")
+local function init_smpkyz()
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/init")
 end
 
 local function reset_queue()
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/reset_loadqueue")
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/reset_loadqueue")
 end
 
 local function load_buffer(i, path)
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/load_sample", {i - 1, path})
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/load_sample", {i - 1, path})
 end
 
 local function clear_buffer()
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/clear_buffer")
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/clear_buffer")
   clear_sample_map()
 end
 
@@ -61,20 +61,20 @@ local function play_voice(vox, note, vel)
   if skey[note].id > 0 then
     local buf = skey[note].id - 1
     local pitch = skey[note].rp
-    osc.send({ "localhost", 57120 }, "/nb_smpkey/play", {vox, buf, pitch, vel})
+    osc.send({ "localhost", 57120 }, "/nb_smpkyz/play", {vox, buf, pitch, vel})
   end
 end
 
 local function stop_voice(vox)
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/stop", {vox})
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/stop", {vox})
 end
 
 local function dont_panic()
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/panic")
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/panic")
 end
 
 local function set_param(key, val)
-  osc.send({ "localhost", 57120 }, "/nb_smpkey/set_param", {key, val})
+  osc.send({ "localhost", 57120 }, "/nb_smpkyz/set_param", {key, val})
 end
 
 
@@ -108,20 +108,20 @@ local function format_freq(freq)
 end
 
 local function set_loop(key)
-  local s = params:get("nb_smpkey_loop_start")
-  local l = params:get("nb_smpkey_loop_length")
+  local s = params:get("nb_smpkyz_loop_start")
+  local l = params:get("nb_smpkyz_loop_length")
   if s + l > 1 then
     if key == "start" then
-      params:set("nb_smpkey_loop_length", 1 - s)
+      params:set("nb_smpkyz_loop_length", 1 - s)
     elseif key == "length" then
-      params:set("nb_smpkey_loop_start", 1 - l)
+      params:set("nb_smpkyz_loop_start", 1 - l)
     end
   end
 end
 
 local function bang_params()
   for _, prm in ipairs(paramslist) do
-    local p = params:lookup_param("nb_smpkey_"..prm)
+    local p = params:lookup_param("nb_smpkyz_"..prm)
     p:bang()
   end
 end
@@ -137,7 +137,7 @@ local function getfiles(directory)
       table.remove(fp, tab.key(fp, f))
     end
   end
-  return fp, #fp
+  return fp
 end
 
 local function build_sample_map(fmap)
@@ -169,42 +169,45 @@ end
 
 local function load_collection(path)
   if is_active and (path ~= "cancel" and path ~= "" and path ~= _path.audio) then
+    clear_buffer()
     local directory = path:match("(.*[/])")
-    local flist, fnum = getfiles(directory)
+    local flist = getfiles(directory)
     local fmap = {}
-    if fnum <= MAX_SAMPLES then
-      for buf_id, fname in ipairs(flist) do
-        local fpath = directory..fname
-        local midi = tonumber(string.match(fname, "^(%d+)"))
-        local ch, samples = audio.file_info(fpath)
-        if midi >= NOTE_MIN and midi <= NOTE_MAX then
-          if ch > 0 and ch < 3 and samples > 1 then
-            if samples < MAX_LENGTH then
-              if fmap[midi] == nil then
+    local buf_id = 0
+    for _, fname in ipairs(flist) do
+      local fpath = directory..fname
+      local midi = tonumber(string.match(fname, "^(%d+)"))
+      local ch, samples = audio.file_info(fpath)
+      if midi >= NOTE_MIN and midi <= NOTE_MAX then
+        if ch > 0 and ch < 3 and samples > 1 then
+          if samples < MAX_LENGTH then
+            if fmap[midi] == nil then
+              buf_id = buf_id + 1
+              if buf_id <= MAX_SAMPLES then
                 fmap[midi] = buf_id
                 load_buffer(buf_id, fpath)
+              else
+                print("max samples reached! dropped sample: "..fpath)
               end
-            else
-              print("max length exceeded: "..fpath)
             end
           else
-            print("file not supported: "..fpath)
+            print("max length exceeded: "..fpath)
           end
         else
-          print("midi note out of bounds", fname)
+          print("file not supported: "..fpath)
         end
+      else
+        print("midi note out of bounds", fname)
       end
-      build_sample_map(fmap)
-      params:set("nb_smpkey_sample_path", path)
-    else
-      print("!! max 36 samples allowed !!")
     end
+    build_sample_map(fmap)
+    params:set("nb_smpkyz_sample_path", path)
   end
 end
 
 local function alloc_buffers()
   reset_queue()
-  load_collection(params:get("nb_smpkey_sample_path"))
+  load_collection(params:get("nb_smpkyz_sample_path"))
 end
 
 
@@ -214,13 +217,13 @@ local function save_preset(txt)
   if txt then
     local preset = {}
     for _, v in pairs(paramslist) do
-      preset[v] = params:get("nb_smpkey_"..v)
+      preset[v] = params:get("nb_smpkyz_"..v)
     end
     clock.run(function()
       clock.sleep(0.2)
       tab.save(preset, preset_path.."/"..txt..".smk")
       current_preset = txt
-      print("saved smpKey: "..txt)
+      print("saved smpKyz: "..txt)
     end)
   end
 end
@@ -232,16 +235,16 @@ local function load_preset(path)
       local preset = tab.load(path)
       if preset ~= nil then
         for _, v in pairs(paramslist) do
-          params:set("nb_smpkey_"..v, preset[v])
+          params:set("nb_smpkyz_"..v, preset[v])
         end
         alloc_buffers()
         current_preset = path:match("[^/]*$"):gsub(".smk", "")
-        print("loaded smpKey: "..current_preset)
+        print("loaded smpKyz: "..current_preset)
       else
-        print("error: smpKey file not found", path)
+        print("error: smpKyz file not found", path)
       end
     else
-      print("error: not a smpKey file")
+      print("error: not a smpKyz file")
     end
   end
 end
@@ -249,148 +252,148 @@ end
 
 --------------------------- params ---------------------------
 
-local function add_smpkey_params()
-  params:add_group("nb_smpkey_group", "smpkey", 49)
-  params:hide("nb_smpkey_group")
+local function add_smpkyz_params()
+  params:add_group("nb_smpkyz_group", "smpKyz", 49)
+  params:hide("nb_smpkyz_group")
 
-  params:add_separator("nb_smpkey_presets", "presets")
+  params:add_separator("nb_smpkyz_presets", "presets")
 
-  params:add_trigger("nb_smpkey_load", ">> load")
-  params:set_action("nb_smpkey_load", function() fs.enter(preset_path, load_preset) end)
+  params:add_trigger("nb_smpkyz_load", ">> load")
+  params:set_action("nb_smpkyz_load", function() fs.enter(preset_path, load_preset) end)
 
-  params:add_trigger("nb_smpkey_save", "<< save")
-  params:set_action("nb_smpkey_save", function() tx.enter(save_preset, current_preset) end)
+  params:add_trigger("nb_smpkyz_save", "<< save")
+  params:set_action("nb_smpkyz_save", function() tx.enter(save_preset, current_preset) end)
 
-  params:add_separator("nb_smpkey_samples", "samples")
+  params:add_separator("nb_smpkyz_samples", "samples")
 
-  params:add_trigger("nb_smpkey_load_samples", "load samples")
-  params:set_action("nb_smpkey_load_samples", function() fs.enter(audio_path, load_collection) end)
+  params:add_trigger("nb_smpkyz_load_samples", "load samples")
+  params:set_action("nb_smpkyz_load_samples", function() fs.enter(audio_path, load_collection) end)
 
-  params:add_text("nb_smpkey_sample_path", "path", audio_path)
-  params:hide("nb_smpkey_sample_path")
+  params:add_text("nb_smpkyz_sample_path", "path", audio_path)
+  params:hide("nb_smpkyz_sample_path")
 
-  params:add_trigger("nb_smpkey_clear_samples", "clear samples")
-  params:set_action("nb_smpkey_clear_samples", function() clear_buffer() end)
+  params:add_trigger("nb_smpkyz_clear_samples", "clear samples")
+  params:set_action("nb_smpkyz_clear_samples", function() clear_buffer() end)
 
-  params:add_separator("nb_smpkey_voice", "smpKey voice")
+  params:add_separator("nb_smpkyz_voice", "smpKyz voice")
 
-  params:add_control("nb_smpkey_amp", "level", controlspec.new(0, 2, "lin", 0, 1), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_amp", function(val) set_param('amp', val) end)
+  params:add_control("nb_smpkyz_amp", "level", controlspec.new(0, 2, "lin", 0, 1), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_amp", function(val) set_param('amp', val) end)
 
-  params:add_control("nb_smpkey_pan", "pan", controlspec.new(-1, 1, "lin", 0, 0), function(param) return pan_display(param:get()) end)
-  params:set_action("nb_smpkey_pan", function(val) set_param('pan', val) end)
+  params:add_control("nb_smpkyz_pan", "pan", controlspec.new(-1, 1, "lin", 0, 0), function(param) return pan_display(param:get()) end)
+  params:set_action("nb_smpkyz_pan", function(val) set_param('pan', val) end)
 
-  params:add_control("nb_smpkey_spread", "spread", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_spread", function(val) set_param('spread', val) end)
+  params:add_control("nb_smpkyz_spread", "spread", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_spread", function(val) set_param('spread', val) end)
 
-  params:add_control("nb_smpkey_drive", "drive", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_drive", function(val) set_param('drive', val) end)
+  params:add_control("nb_smpkyz_drive", "drive", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_drive", function(val) set_param('drive', val) end)
 
-  params:add_control("nb_smpkey_noise", "noise", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_noise", function(val) set_param('noiseAmp', val) end)
+  params:add_control("nb_smpkyz_noise", "noise", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_noise", function(val) set_param('noiseAmp', val) end)
 
-  params:add_control("nb_smpkey_send_a", "send a", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_send_a", function(val) set_param('sendA', val) end)
+  params:add_control("nb_smpkyz_send_a", "send a", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_send_a", function(val) set_param('sendA', val) end)
   
-  params:add_control("nb_smpkey_send_b", "send b", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_send_b", function(val) set_param('sendB', val) end)
+  params:add_control("nb_smpkyz_send_b", "send b", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_send_b", function(val) set_param('sendB', val) end)
 
-  params:add_separator("nb_smpkey_playback", "playback")
+  params:add_separator("nb_smpkyz_playback", "playback")
 
-  params:add_number("nb_smpkey_start", "sample start", 0, 1000, 0, function(param) return param:get().."ms" end)
-  params:set_action("nb_smpkey_start", function(val) set_param('startPos', val / 1000) end)
+  params:add_number("nb_smpkyz_start", "sample start", 0, 1000, 0, function(param) return param:get().."ms" end)
+  params:set_action("nb_smpkyz_start", function(val) set_param('startPos', val / 1000) end)
 
-  params:add_control("nb_smpkey_loop_start", "loop start", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 0.1, "%") end)
-  params:set_action("nb_smpkey_loop_start", function(val) set_param('loopIn', val) set_loop('start') end)
+  params:add_control("nb_smpkyz_loop_start", "loop start", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 0.1, "%") end)
+  params:set_action("nb_smpkyz_loop_start", function(val) set_param('loopIn', val) set_loop('start') end)
 
-  params:add_control("nb_smpkey_loop_length", "loop length", controlspec.new(0, 1, "lin", 0, 1), function(param) return round_form(param:get() * 100, 0.1, "%") end)
-  params:set_action("nb_smpkey_loop_length", function(val) set_param('loopLen', val) set_loop('length') end)
+  params:add_control("nb_smpkyz_loop_length", "loop length", controlspec.new(0, 1, "lin", 0, 1), function(param) return round_form(param:get() * 100, 0.1, "%") end)
+  params:set_action("nb_smpkyz_loop_length", function(val) set_param('loopLen', val) set_loop('length') end)
 
-  params:add_control("nb_smpkey_loop_fade", "loop fade", controlspec.new(0.01, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 0.1, "%") end)
-  params:set_action("nb_smpkey_loop_fade", function(val) set_param('fadeRel', val) end)
+  params:add_control("nb_smpkyz_loop_fade", "loop fade", controlspec.new(0.01, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 0.1, "%") end)
+  params:set_action("nb_smpkyz_loop_fade", function(val) set_param('fadeRel', val) end)
 
-  params:add_separator("nb_smpkey_envelope", "amp envelope")
+  params:add_separator("nb_smpkyz_amp_envelope", "amp envelope")
 
-  params:add_control("nb_smpkey_a_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_a_attack", function(val) set_param('atkA', val) end)
+  params:add_control("nb_smpkyz_a_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkyz_a_attack", function(val) set_param('atkA', val) end)
 
-  params:add_control("nb_smpkey_a_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_a_decay", function(val) set_param('decA', val) end)
+  params:add_control("nb_smpkyz_a_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkyz_a_decay", function(val) set_param('decA', val) end)
 
-  params:add_control("nb_smpkey_a_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_a_sustain", function(val) set_param('susA', val) end)
+  params:add_control("nb_smpkyz_a_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_a_sustain", function(val) set_param('susA', val) end)
 
-  params:add_control("nb_smpkey_a_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
-  params:set_action("nb_smpkey_a_release", function(val) set_param('relA', val) end)
+  params:add_control("nb_smpkyz_a_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
+  params:set_action("nb_smpkyz_a_release", function(val) set_param('relA', val) end)
 
-  params:add_separator("nb_smpkey_envelope", "filter envelope")
+  params:add_separator("nb_smpkyz_filter_envelope", "filter envelope")
 
-  params:add_control("nb_smpkey_f_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_f_attack", function(val) set_param('atkF', val) end)
+  params:add_control("nb_smpkyz_f_attack", "attack", controlspec.new(0.001, 10, "exp", 0, 0.001), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkyz_f_attack", function(val) set_param('atkF', val) end)
 
-  params:add_control("nb_smpkey_f_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
-  params:set_action("nb_smpkey_f_decay", function(val) set_param('decF', val) end)
+  params:add_control("nb_smpkyz_f_decay", "decay", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(),0.01," s")) end)
+  params:set_action("nb_smpkyz_f_decay", function(val) set_param('decF', val) end)
 
-  params:add_control("nb_smpkey_f_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_f_sustain", function(val) set_param('susF', val) end)
+  params:add_control("nb_smpkyz_f_sustain", "sustain", controlspec.new(0, 1, "lin", 0, 0.5), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_f_sustain", function(val) set_param('susF', val) end)
 
-  params:add_control("nb_smpkey_f_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
-  params:set_action("nb_smpkey_f_release", function(val) set_param('relF', val) end)
+  params:add_control("nb_smpkyz_f_release", "release", controlspec.new(0.01, 10, "exp", 0, 2.2), function(param) return (round_form(param:get(), 0.01, " s")) end)
+  params:set_action("nb_smpkyz_f_release", function(val) set_param('relF', val) end)
 
-  params:add_separator("nb_smpkey_filters", "filters")
+  params:add_separator("nb_smpkyz_filters", "filters")
 
-  params:add_control("nb_smpkey_lpf_hz", "lpf cutoff", controlspec.new(60, 20000, "exp", 0, 20000), function(param) return format_freq(param:get()) end)
-  params:set_action("nb_smpkey_lpf_hz", function(val) set_param('lpfHz', val) end)
+  params:add_control("nb_smpkyz_lpf_hz", "lpf cutoff", controlspec.new(60, 20000, "exp", 0, 20000), function(param) return format_freq(param:get()) end)
+  params:set_action("nb_smpkyz_lpf_hz", function(val) set_param('lpfHz', val) end)
 
-  params:add_control("nb_smpkey_lpf_rz", "lpf resonance", controlspec.new(0, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_lpf_rz", function(val) set_param('lpfRz', val) end)
+  params:add_control("nb_smpkyz_lpf_rz", "lpf resonance", controlspec.new(0, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_lpf_rz", function(val) set_param('lpfRz', val) end)
 
-  params:add_control("nb_smpkey_lpf_env", "lpf env", controlspec.new(-1, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_lpf_env", function(val) set_param('lpfEnv', val) end)
+  params:add_control("nb_smpkyz_lpf_env", "lpf env", controlspec.new(-1, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_lpf_env", function(val) set_param('lpfEnv', val) end)
 
-  params:add_control("nb_smpkey_hpf_hz", "hpf cutoff", controlspec.new(20, 8000, "exp", 0, 20), function(param) return format_freq(param:get()) end)
-  params:set_action("nb_smpkey_hpf_hz", function(val) set_param('hpfHz', val) end)
+  params:add_control("nb_smpkyz_hpf_hz", "hpf cutoff", controlspec.new(20, 8000, "exp", 0, 20), function(param) return format_freq(param:get()) end)
+  params:set_action("nb_smpkyz_hpf_hz", function(val) set_param('hpfHz', val) end)
 
-  params:add_control("nb_smpkey_hpf_rz", "hpf resonance", controlspec.new(0, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_hpf_rz", function(val) set_param('hpfRz', val) end)
+  params:add_control("nb_smpkyz_hpf_rz", "hpf resonance", controlspec.new(0, 1, "lin", 0, 0.2), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_hpf_rz", function(val) set_param('hpfRz', val) end)
 
-  params:add_control("nb_smpkey_hpf_env", "hpf env", controlspec.new(-1, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_hpf_env", function(val) set_param('hpfEnv', val) end)
+  params:add_control("nb_smpkyz_hpf_env", "hpf env", controlspec.new(-1, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_hpf_env", function(val) set_param('hpfEnv', val) end)
 
-  params:add_separator("nb_smpkey_pitch", "pitch")
+  params:add_separator("nb_smpkyz_pitch", "pitch")
 
-  params:add_number("nb_smpkey_tune", "tune", -100, 100, 0, function(param) return param:get().."ct" end)
-  params:set_action("nb_smpkey_tune", function(val) set_param('tune', val / 100) end)
+  params:add_number("nb_smpkyz_tune", "tune", -100, 100, 0, function(param) return param:get().."ct" end)
+  params:set_action("nb_smpkyz_tune", function(val) set_param('tune', val / 100) end)
 
-  params:add_number("nb_smpkey_transpose", "transpose", -24, 24, 0, function(param) return param:get().."st" end)
-  params:set_action("nb_smpkey_transpose", function(val) set_param('pitch', val) end)
+  params:add_number("nb_smpkyz_transpose", "transpose", -24, 24, 0, function(param) return param:get().."st" end)
+  params:set_action("nb_smpkyz_transpose", function(val) set_param('pitch', val) end)
 
-  params:add_number("nb_smpkey_pitchbend", "pitchbend", 1, 24, 1, function(param) return param:get().."st" end)
-  params:set_action("nb_smpkey_pitchbend", function(val) set_param('bndAmt', val) end)
+  params:add_number("nb_smpkyz_pitchbend", "pitchbend", 1, 24, 1, function(param) return param:get().."st" end)
+  params:set_action("nb_smpkyz_pitchbend", function(val) set_param('bndAmt', val) end)
 
-  params:add_separator("nb_smpkey_modmods", "modulation")
+  params:add_separator("nb_smpkyz_modmods", "modulation")
 
-  params:add_control("nb_smpkey_mod_amt", "mod amt [map me]", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_mod_amt", function(val) set_param('modDepth', val) end)
-  params:set_save("nb_smpkey_mod_amt", false)
+  params:add_control("nb_smpkyz_mod_amt", "mod amt [map me]", controlspec.new(0, 1, "lin", 0, 0), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_mod_amt", function(val) set_param('modDepth', val) end)
+  params:set_save("nb_smpkyz_mod_amt", false)
 
-  params:add_control("nb_smpkey_drive_mod", "drive", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_drive_mod", function(val) set_param('driveMod', val) end)
+  params:add_control("nb_smpkyz_drive_mod", "drive", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_drive_mod", function(val) set_param('driveMod', val) end)
 
-  params:add_control("nb_smpkey_noise_mod", "noise", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_noise_mod", function(val) set_param('noiseMod', val) end)
+  params:add_control("nb_smpkyz_noise_mod", "noise", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_noise_mod", function(val) set_param('noiseMod', val) end)
 
-  params:add_control("nb_smpkey_lpf_hz_mod", "lpf cutoff", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_lpf_hz_mod", function(val) set_param('lpfMod', val) end)
+  params:add_control("nb_smpkyz_lpf_hz_mod", "lpf cutoff", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_lpf_hz_mod", function(val) set_param('lpfMod', val) end)
   
-  params:add_control("nb_smpkey_hpf_hz_mod", "hpf cutoff", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_hpf_hz_mod", function(val) set_param('hpfMod', val) end)
+  params:add_control("nb_smpkyz_hpf_hz_mod", "hpf cutoff", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_hpf_hz_mod", function(val) set_param('hpfMod', val) end)
 
-  params:add_control("nb_smpkey_send_a_mod", "send a", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_send_a_mod", function(val) set_param('sendAMod', val) end)
+  params:add_control("nb_smpkyz_send_a_mod", "send a", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_send_a_mod", function(val) set_param('sendAMod', val) end)
   
-  params:add_control("nb_smpkey_send_b_mod", "send b", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
-  params:set_action("nb_smpkey_send_b_mod", function(val) set_param('sendBMod', val) end)
+  params:add_control("nb_smpkyz_send_b_mod", "send b", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_smpkyz_send_b_mod", function(val) set_param('sendBMod', val) end)
 
   bang_params()
 
@@ -399,7 +402,7 @@ end
 
 --------------------------- nb player ---------------------------
 
-function add_smpkey_player()
+function add_smpkyz_player()
   local player = {
     alloc = vx.new(MAX_POLY, 2),
     slot = {},
@@ -408,7 +411,7 @@ function add_smpkey_player()
 
   function player:describe()
     return {
-      name = "smpKey",
+      name = "smpKyz",
       supports_bend = false,
       supports_slew = false
     }
@@ -424,7 +427,7 @@ function add_smpkey_player()
         if not is_active then
           is_active = true
           alloc_buffers()
-          params:show("nb_smpkey_group")
+          params:show("nb_smpkyz_group")
           _menu.rebuild_params()
         end
       end)
@@ -442,7 +445,7 @@ function add_smpkey_player()
           is_active = false
           dont_panic()
           clear_buffer()
-          params:hide("nb_smpkey_group")
+          params:hide("nb_smpkyz_group")
           _menu.rebuild_params()
         end
       end)
@@ -464,7 +467,7 @@ function add_smpkey_player()
   end
 
   function player:modulate(val)
-    params:set("nb_smpkey_mod_amt", val)
+    params:set("nb_smpkyz_mod_amt", val)
   end
 
   function player:note_on(note, vel)
@@ -490,13 +493,13 @@ function add_smpkey_player()
   end
 
   function player:add_params()
-    add_smpkey_params()
+    add_smpkyz_params()
   end
 
   if note_players == nil then
     note_players = {}
   end
-  note_players["smpKey"] = player
+  note_players["smpKyz"] = player
 
 end
 
@@ -510,14 +513,14 @@ local function post_system()
 end
 
 local function pre_init()
-  init_smpkey()
-  add_smpkey_player()
+  init_smpkyz()
+  add_smpkyz_player()
 end
 
 local function post_cleanup()
   clear_buffer()
 end
 
-md.hook.register("system_post_startup", "nb smpKey post startup", post_system)
-md.hook.register("script_pre_init", "nb smpKey pre init", pre_init)
-md.hook.register("script_post_cleanup", "nb smpKey cleanup", post_cleanup)
+md.hook.register("system_post_startup", "nb smpKyz post startup", post_system)
+md.hook.register("script_pre_init", "nb smpKyz pre init", pre_init)
+md.hook.register("script_post_cleanup", "nb smpKyz cleanup", post_cleanup)
